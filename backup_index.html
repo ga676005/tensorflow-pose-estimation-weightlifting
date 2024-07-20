@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TensorFlow.js PoseNet Example</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+</head>
+
+<body>
+  <h1>TensorFlow.js PoseNet Example</h1>
+  <video id="video" width="640" height="480" autoplay></video>
+  <canvas id="output" width="640" height="480"></canvas>
+  <div id="error" style="color: red;"></div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('output');
+    const ctx = canvas.getContext('2d');
+    const errorDiv = document.getElementById('error');
+
+    async function setupCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Browser API navigator.mediaDevices.getUserMedia not available');
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        return new Promise(resolve => {
+          video.onloadedmetadata = () => resolve(video);
+        });
+      } catch (error) {
+        errorDiv.textContent = `Error accessing the camera: ${error.message}`;
+        throw error;
+      }
+    }
+
+    async function loadModel() {
+      try {
+        const model = poseDetection.SupportedModels.MoveNet;
+        const detectorConfig = {
+          // modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+          modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
+          enableSmoothing: true,
+          quantBytes: 1
+        };
+        return await poseDetection.createDetector(model, detectorConfig);
+      } catch (error) {
+        errorDiv.textContent = `Error loading the model: ${error.message}`;
+        throw error;
+      }
+    }
+
+    async function run() {
+      try {
+        await setupCamera();
+        const detector = await loadModel();
+        detectPose(detector);
+      } catch (error) {
+        console.error('Error in run function:', error);
+      }
+    }
+
+
+    // Constants for drawing
+    const color = 'aqua';
+    const lineWidth = 2;
+    const pointRadius = 4;
+
+    // Keypoint connections for skeleton
+    const POSE_CONNECTIONS = [
+      ['left_ear', 'left_eye'], ['right_ear', 'right_eye'],
+      ['left_eye', 'nose'], ['right_eye', 'nose'],
+      ['nose', 'left_shoulder'], ['nose', 'right_shoulder'],
+      ['left_shoulder', 'left_elbow'], ['right_shoulder', 'right_elbow'],
+      ['left_elbow', 'left_wrist'], ['right_elbow', 'right_wrist'],
+      ['left_shoulder', 'right_shoulder'],
+      ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+      ['left_hip', 'right_hip'],
+      ['left_hip', 'left_knee'], ['right_hip', 'right_knee'],
+      ['left_knee', 'left_ankle'], ['right_knee', 'right_ankle']
+    ];
+
+    function drawKeypoints(keypoints) {
+      for (let keypoint of keypoints) {
+        if (keypoint.score > 0.3) {
+          ctx.beginPath();
+          ctx.arc(keypoint.x, keypoint.y, pointRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawSkeleton(keypoints) {
+      const keypointMap = new Map(keypoints.map(keypoint => [keypoint.name, keypoint]));
+
+      for (let [start, end] of POSE_CONNECTIONS) {
+        const startPoint = keypointMap.get(start);
+        const endPoint = keypointMap.get(end);
+
+        if (startPoint && endPoint && startPoint.score > 0.3 && endPoint.score > 0.3) {
+          ctx.beginPath();
+          ctx.moveTo(startPoint.x, startPoint.y);
+          ctx.lineTo(endPoint.x, endPoint.y);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = lineWidth;
+          ctx.stroke();
+        }
+      }
+    }
+
+    let isInStartPosition = false;
+    let isInEndPosition = false;
+    let hasPassedKnees = false;
+    let hasDroppedBar = false;
+    let lastNotificationTime = 0;
+
+    function detectWeightliftingPositions(keypoints) {
+      const keypointMap = new Map(keypoints.map(keypoint => [keypoint.name, keypoint]));
+
+      const leftWrist = keypointMap.get('left_wrist');
+      const rightWrist = keypointMap.get('right_wrist');
+      const leftKnee = keypointMap.get('left_knee');
+      const rightKnee = keypointMap.get('right_knee');
+      const leftShoulder = keypointMap.get('left_shoulder');
+      const rightShoulder = keypointMap.get('right_shoulder');
+      const nose = keypointMap.get('nose');
+
+      if (leftWrist && rightWrist && leftKnee && rightKnee && leftShoulder && rightShoulder && nose) {
+        // Detect starting position
+        const wristsBelowKnees = (leftWrist.y > leftKnee.y) && (rightWrist.y > rightKnee.y);
+        if (wristsBelowKnees && !isInStartPosition) {
+          isInStartPosition = true;
+          isInEndPosition = false;
+          hasPassedKnees = false;
+          hasDroppedBar = false;
+          notifyPositionDetected('Start position detected!');
+        }
+
+        // Detect wrists passing knees
+        const wristsAboveKnees = (leftWrist.y < leftKnee.y) && (rightWrist.y < rightKnee.y);
+        if (isInStartPosition && wristsAboveKnees && !hasPassedKnees) {
+          hasPassedKnees = true;
+          notifyPositionDetected('Lift in progress: Bar passed knees!');
+        }
+
+        // Detect ending position
+        const wristsAboveShoulders = (leftWrist.y < leftShoulder.y) && (rightWrist.y < rightShoulder.y);
+        const wristsAboveNose = (leftWrist.y < nose.y) && (rightWrist.y < nose.y);
+        if (wristsAboveShoulders && wristsAboveNose && !isInEndPosition) {
+          isInEndPosition = true;
+          isInStartPosition = false;
+          notifyPositionDetected('End position detected!');
+        }
+
+        // Detect dropping the bar (only check after reaching end position)
+        if (isInEndPosition && !hasDroppedBar) {
+          const wristsBelowShoulders = (leftWrist.y > leftShoulder.y) && (rightWrist.y > rightShoulder.y);
+          if (wristsBelowShoulders) {
+            hasDroppedBar = true;
+            notifyPositionDetected('Bar dropped - lift completed!');
+            // Reset for next lift
+            isInStartPosition = false;
+            isInEndPosition = false;
+            hasPassedKnees = false;
+          }
+        }
+      }
+    }
+
+    function notifyPositionDetected(message) {
+      const currentTime = Date.now();
+      if (currentTime - lastNotificationTime > 1000) { // Limit notifications to once per second
+        console.log(message);
+        showOnScreenNotification(message);
+        lastNotificationTime = currentTime;
+      }
+    }
+
+    function showOnScreenNotification(message) {
+      const notification = document.createElement('div');
+      notification.textContent = message;
+      notification.style.position = 'absolute';
+      notification.style.top = '10px';
+      notification.style.left = '50%';
+      notification.style.transform = 'translateX(-50%)';
+      notification.style.background = 'rgba(0, 0, 0, 0.7)';
+      notification.style.color = 'white';
+      notification.style.padding = '10px';
+      notification.style.borderRadius = '5px';
+      notification.style.zIndex = '1000';
+      document.body.appendChild(notification);
+
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 2000);
+    }
+
+    async function detectPose(detector) {
+      try {
+        const poses = await detector.estimatePoses(video);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        if (poses.length > 0) {
+          drawKeypoints(poses[0].keypoints);
+          drawSkeleton(poses[0].keypoints);
+          detectWeightliftingPositions(poses[0].keypoints);
+        }
+
+        requestAnimationFrame(() => detectPose(detector));
+      } catch (error) {
+        console.error('Error during pose detection:', error);
+      }
+    }
+
+    run();
+  </script>
+</body>
+
+</html>
