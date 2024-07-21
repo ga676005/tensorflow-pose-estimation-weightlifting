@@ -5,7 +5,7 @@ import { ready } from '@tensorflow/tfjs'
 let isReady = false
 let isInStartPosition = false
 let isInEndPosition = false
-let hasPassedKnees = false
+let hasPassedHip = false
 let hasDroppedBar = false
 
 export async function loadModel() {
@@ -25,7 +25,7 @@ export async function loadModel() {
   }
 }
 
-function detectWeightliftingPositions(keypoints: Keypoint[]): void {
+function detectWeightliftingPositions(keypoints: Keypoint[]) {
   const keypointMap = new Map(keypoints.map(keypoint => [keypoint.name, keypoint]))
 
   const leftWrist = keypointMap.get('left_wrist')
@@ -34,44 +34,67 @@ function detectWeightliftingPositions(keypoints: Keypoint[]): void {
   const rightKnee = keypointMap.get('right_knee')
   const leftShoulder = keypointMap.get('left_shoulder')
   const rightShoulder = keypointMap.get('right_shoulder')
+  const leftHip = keypointMap.get('left_hip')
+  const rightHip = keypointMap.get('right_hip')
   const nose = keypointMap.get('nose')
 
-  if (leftWrist && rightWrist && leftKnee && rightKnee && leftShoulder && rightShoulder && nose) {
-    // Detect starting position
-    const wristsBelowKnees = (leftWrist.y > leftKnee.y) && (rightWrist.y > rightKnee.y)
-    if (wristsBelowKnees && !isInStartPosition) {
-      isInStartPosition = true
-      isInEndPosition = false
-      hasPassedKnees = false
-      hasDroppedBar = false
-    }
-
-    // Detect wrists passing knees
-    const wristsAboveKnees = (leftWrist.y < leftKnee.y) && (rightWrist.y < rightKnee.y)
-    if (isInStartPosition && wristsAboveKnees && !hasPassedKnees) {
-      hasPassedKnees = true
-    }
-
-    // Detect ending position
-    const wristsAboveShoulders = (leftWrist.y < leftShoulder.y) && (rightWrist.y < rightShoulder.y)
-    const wristsAboveNose = (leftWrist.y < nose.y) && (rightWrist.y < nose.y)
-    if (wristsAboveShoulders && wristsAboveNose && !isInEndPosition) {
-      isInEndPosition = true
-      isInStartPosition = false
-    }
-
-    // Detect dropping the bar (only check after reaching end position)
-    if (isInEndPosition && !hasDroppedBar) {
-      const wristsBelowShoulders = (leftWrist.y > leftShoulder.y) && (rightWrist.y > rightShoulder.y)
-      if (wristsBelowShoulders) {
-        hasDroppedBar = true
-        // Reset for next lift
-        isInStartPosition = false
-        isInEndPosition = false
-        hasPassedKnees = false
-      }
-    }
+  const isWristBelowKnee = () => {
+    return leftWrist?.score && leftWrist?.score > 0.5 && leftKnee?.score && leftKnee.score > 0.5 && leftWrist.y > leftKnee.y
+      || rightWrist?.score && rightWrist.score > 0.5 && rightKnee?.score && rightKnee.score > 0.5 && rightWrist.y > rightKnee.y
   }
+
+  const isHipBelowKnee = () => {
+    return leftHip?.score && leftHip.score > 0.5 && leftKnee?.score && leftKnee.score > 0.5 && leftHip.y > leftKnee.y
+      || rightHip?.score && rightHip.score > 0.5 && rightKnee?.score && rightKnee.score > 0.5 && rightHip.y > rightKnee.y
+  }
+
+  const isHipAboveKnee = () => {
+    return leftHip?.score && leftHip.score > 0.5 && leftKnee?.score && leftKnee.score > 0.5 && leftHip.y < leftKnee.y
+      || rightHip?.score && rightHip.score > 0.5 && rightKnee?.score && rightKnee.score > 0.5 && rightHip.y < rightKnee.y
+  }
+
+  const isWristAboveHip = () => {
+    return leftWrist?.score && leftWrist.score > 0.5 && leftHip?.score && leftHip.score > 0.5 && leftWrist.y < leftHip.y
+      || rightWrist?.score && rightWrist.score > 0.5 && rightHip?.score && rightHip.score > 0.5 && rightWrist.y < rightHip.y
+  }
+
+  const isWristAboveNose = () => {
+    return leftWrist?.score && leftWrist.score > 0.5 && nose?.score && nose.score > 0.5 && leftWrist.y < nose.y
+      || rightWrist?.score && rightWrist.score > 0.5 && nose?.score && nose.score > 0.5 && rightWrist.y < nose.y
+  }
+
+  const isWristBelowShoulder = () => {
+    return leftWrist?.score && leftWrist.score > 0.5 && leftShoulder?.score && leftShoulder.score > 0.5 && leftWrist.y > leftShoulder.y
+      || rightWrist?.score && rightWrist.score > 0.5 && rightShoulder?.score && rightShoulder.score > 0.5 && rightWrist.y > rightShoulder.y
+  }
+
+  if (!isInStartPosition && isHipBelowKnee() && isWristBelowKnee()) {
+    isInStartPosition = true
+    hasDroppedBar = false
+    console.log('isInStartPosition')
+  }
+  else if (!hasPassedHip && isInStartPosition && isHipAboveKnee() && isWristAboveHip()) {
+    hasPassedHip = true
+    console.log('is lifting')
+  }
+  else if (!isInEndPosition && isInStartPosition && hasPassedHip && isWristAboveNose()) {
+    isInEndPosition = true
+    console.log('isInEndPosition')
+  }
+  else if (!hasDroppedBar && isInStartPosition && hasPassedHip && isInEndPosition && isWristBelowShoulder()) {
+    hasDroppedBar = true
+    isInStartPosition = false
+    hasPassedHip = false
+    isInEndPosition = false
+    console.log('hasDroppedBar')
+  }
+
+  // console.log({
+  //   isInStartPosition,
+  //   isInEndPosition,
+  //   hasPassedKnees,
+  //   hasDroppedBar,
+  // })
 }
 
 export async function detectPose(detector: PoseDetector, video: HTMLVideoElement) {
@@ -82,13 +105,37 @@ export async function detectPose(detector: PoseDetector, video: HTMLVideoElement
 
     const poses = await detector.estimatePoses(video)
     if (poses.length > 0) {
-      // detectWeightliftingPositions(poses[0].keypoints)
+      detectWeightliftingPositions(poses[0].keypoints)
       return poses[0].keypoints
     }
   }
   catch (error) {
     console.error('Error during pose detection:', error)
   }
+}
+
+const KEYPOINTS = new Set([
+  // 'left_ear',
+  // 'left_eye',
+  // 'right_ear',
+  // 'right_eye',
+  'nose',
+  'left_shoulder',
+  'right_shoulder',
+  'left_elbow',
+  'right_elbow',
+  'left_wrist',
+  'right_wrist',
+  'left_hip',
+  'right_hip',
+  'left_knee',
+  'right_knee',
+  'left_ankle',
+  'right_ankle',
+])
+
+function getKeypoints(keypoints: Keypoint[]) {
+
 }
 
 export function drawKeypoints(keypoints: Keypoint[], ctx: CanvasRenderingContext2D, scaleX = 1, scaleY = 1): void {
