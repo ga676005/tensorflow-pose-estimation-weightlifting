@@ -11,16 +11,17 @@
       <template id="template-video">
         <div data-video class="w-fit relative">
           <video
-            class="max-h-[400px] invisible"
+            controls
+            class="max-h-[400px]"
             src="./2024-06-24 西北 Snatch 55KG S1.webm"
           ></video>
-          <canvas class="absolute top-0 left-0"></canvas>
+          <canvas class="absolute top-0 left-0 pointer-events-none"></canvas>
         </div>
       </template>
     </div>
 
     <div id="error" class="text-red-500"></div>
-    <button data-play-pause>play/pause</button>
+    <button data-play-pause="pause">play/pause</button>
     <button data-detect>detect</button>
 
     <script src="/main.ts" type="module"></script>

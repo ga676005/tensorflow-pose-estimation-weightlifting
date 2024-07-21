@@ -1,14 +1,14 @@
-import type { Keypoint, MoveNetModelConfig, PoseDetector } from '@tensorflow-models/pose-detection'
+import type { Keypoint, MoveNetModelConfig, Pose, PoseDetector } from '@tensorflow-models/pose-detection'
 import { SupportedModels, createDetector, movenet } from '@tensorflow-models/pose-detection'
 import { ready } from '@tensorflow/tfjs'
 
-let detector: PoseDetector
+let isReady = false
 let isInStartPosition = false
 let isInEndPosition = false
 let hasPassedKnees = false
 let hasDroppedBar = false
 
-async function loadModel() {
+export async function loadModel() {
   try {
     await ready()
     const model = SupportedModels.MoveNet
@@ -16,7 +16,8 @@ async function loadModel() {
       modelType: movenet.modelType.SINGLEPOSE_THUNDER,
       enableSmoothing: true,
     }
-    detector = await createDetector(model, detectorConfig)
+    const detector = await createDetector(model, detectorConfig)
+    isReady = true
     return detector
   }
   catch (error) {
@@ -73,14 +74,33 @@ function detectWeightliftingPositions(keypoints: Keypoint[]): void {
   }
 }
 
-async function detectPose(video: HTMLVideoElement) {
+export async function detectPose(detector: PoseDetector, video: HTMLVideoElement) {
   try {
+    if (!isReady) {
+      return
+    }
+
     const poses = await detector.estimatePoses(video)
     if (poses.length > 0) {
-      detectWeightliftingPositions(poses[0].keypoints)
+      // detectWeightliftingPositions(poses[0].keypoints)
+      return poses[0].keypoints
     }
   }
   catch (error) {
     console.error('Error during pose detection:', error)
+  }
+}
+
+export function drawKeypoints(keypoints: Keypoint[], ctx: CanvasRenderingContext2D, scaleX = 1, scaleY = 1): void {
+  const pointRadius = 4
+  const color = 'yellow'
+
+  for (const keypoint of keypoints) {
+    if (keypoint.score! > 0.3) {
+      ctx.beginPath()
+      ctx.arc(keypoint.x * scaleX, keypoint.y * scaleY, pointRadius, 0, 2 * Math.PI)
+      ctx.fillStyle = color
+      ctx.fill()
+    }
   }
 }
