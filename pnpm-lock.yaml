@@ -21,6 +21,9 @@ importers:
       '@antfu/eslint-config':
         specifier: ^2.23.0
         version: 2.23.0(@vue/compiler-sfc@3.4.33)(eslint-plugin-format@0.1.2(eslint@9.5.0))(eslint@9.5.0)(typescript@5.5.3)
+      '@total-typescript/ts-reset':
+        specifier: ^0.5.1
+        version: 0.5.1
       eslint:
         specifier: 9.5.0
         version: 9.5.0
@@ -681,6 +684,9 @@ packages:
     resolution: {integrity: sha512-+ZLfJq2jyIOE2/+yKPoyD/gfy3RZypbfMrlzvBDgodTK5jnexprihhX38hxilh9HPWvWQXJqiUjKJP5ECCikrw==}
     hasBin: true
 
+  '@total-typescript/ts-reset@0.5.1':
+    resolution: {integrity: sha512-AqlrT8YA1o7Ff5wPfMOL0pvL+1X+sw60NN6CcOCqs658emD6RfiXhF7Gu9QcfKBH7ELY2nInLhKSCWVoNL70MQ==}
+
   '@types/emscripten@0.0.34':
     resolution: {integrity: sha512-QSb9ojDincskc+uKMI0KXp8e1NALFINCrMlp8VGKGcTSxeEyRTTKyjWw75NYrCZHUsVEEEpr1tYHpbtaC++/sQ==}
 
@@ -1255,8 +1261,8 @@ packages:
     peerDependencies:
       eslint: ^8.56.0 || ^9.0.0-0
 
-  eslint-plugin-jsdoc@48.8.1:
-    resolution: {integrity: sha512-8As7AgbuJ/kbDBYX6BH1XJttcpdUdkDP9X0O0SkstoKSA2RjUNH2TPfvzsX9weQ7nXqU+0O184aJBAKveORBhQ==}
+  eslint-plugin-jsdoc@48.8.3:
+    resolution: {integrity: sha512-AtIvwwW9D17MRkM0Z0y3/xZYaa9mdAvJrkY6fU/HNUwGbmMtHVvK4qRM9CDixGVtfNrQitb8c6zQtdh6cTOvLg==}
     engines: {node: '>=18'}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
@@ -1765,6 +1771,9 @@ packages:
 
   ms@2.1.2:
     resolution: {integrity: sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==}
+
+  ms@2.1.3:
+    resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
   nanoid@3.3.7:
     resolution: {integrity: sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==}
@@ -2334,7 +2343,7 @@ snapshots:
       eslint-plugin-command: 0.2.3(eslint@9.5.0)
       eslint-plugin-eslint-comments: 3.2.0(eslint@9.5.0)
       eslint-plugin-import-x: 3.0.1(eslint@9.5.0)(typescript@5.5.3)
-      eslint-plugin-jsdoc: 48.8.1(eslint@9.5.0)
+      eslint-plugin-jsdoc: 48.8.3(eslint@9.5.0)
       eslint-plugin-jsonc: 2.16.0(eslint@9.5.0)
       eslint-plugin-markdown: 5.1.0(eslint@9.5.0)
       eslint-plugin-n: 17.9.0(eslint@9.5.0)
@@ -2986,6 +2995,8 @@ snapshots:
       - encoding
       - seedrandom
 
+  '@total-typescript/ts-reset@0.5.1': {}
+
   '@types/emscripten@0.0.34': {}
 
   '@types/eslint@8.56.10':
@@ -3538,7 +3549,7 @@ snapshots:
 
   debug@3.2.7:
     dependencies:
-      ms: 2.1.2
+      ms: 2.1.3
 
   debug@4.3.5:
     dependencies:
@@ -3697,7 +3708,7 @@ snapshots:
       - supports-color
       - typescript
 
-  eslint-plugin-jsdoc@48.8.1(eslint@9.5.0):
+  eslint-plugin-jsdoc@48.8.3(eslint@9.5.0):
     dependencies:
       '@es-joy/jsdoccomment': 0.46.0
       are-docs-informative: 0.0.2
@@ -4249,6 +4260,8 @@ snapshots:
   mrmime@2.0.0: {}
 
   ms@2.1.2: {}
+
+  ms@2.1.3: {}
 
   nanoid@3.3.7: {}
 
