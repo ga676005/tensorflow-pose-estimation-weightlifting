@@ -25,7 +25,8 @@ const btnDetect = document.querySelector('[data-detect]') as HTMLButtonElement
 const btnSaveCheckpoint = document.querySelector('[data-setCheckpoint]') as HTMLButtonElement
 const btnPlaybackBackward = document.querySelector('[data-playback-backward]') as HTMLButtonElement
 const btnPlaybackForward = document.querySelector('[data-playback-forward]') as HTMLButtonElement
-const btnPlaybackRate = document.querySelector('[data-playback-rate]') as HTMLInputElement
+const inputPlaybackTime = document.querySelector('[data-playback-time]') as HTMLInputElement
+const inputPlaybackRate = document.querySelector('[data-playback-rate]') as HTMLInputElement
 
 function loadVideos() {
   const sources = [
@@ -95,12 +96,51 @@ function loadVideos() {
       const color = 'yellow'
       let count = 0
 
-      keypointMap.forEach((e) => {
+      keypointMap.forEach((e, key) => {
         if (e.score > CHECKPOINT_SCORE) {
+          const x = e.x * scaleX
+          const y = e.y * scaleY
+
+          // Draw the point
           ctx.beginPath()
-          ctx.arc(e.x * scaleX, e.y * scaleY, pointRadius, 0, 2 * Math.PI)
+          ctx.arc(x, y, pointRadius, 0, 2 * Math.PI)
           ctx.fillStyle = color
           ctx.fill()
+
+          // // Draw the label
+          // const label = `${e.name}(${e.score.toFixed(2)})`
+          // ctx.font = '16px Arial'
+          // const textMetrics = ctx.measureText(label)
+          // const textWidth = textMetrics.width
+          // const textHeight = 16 // Approximate height of the font
+          // const padding = 2
+
+          // let labelX = x
+          // let labelY = y - pointRadius - 1 - (textHeight + padding * 2) // 1px distance to the top of the point
+
+          // // Adjust horizontal position based on 'left' or 'right' in the name
+          // if (label.includes('right')) {
+          //   labelX = x - textWidth - padding * 2 - pointRadius // Left of the point
+          // }
+          // else if (label.includes('left')) {
+          //   labelX = x + pointRadius + padding // Right of the point
+          // }
+          // else {
+          //   labelX = x - textWidth / 2 - padding
+          // }
+
+          // // Ensure the label is within the canvas boundaries
+          // labelX = Math.max(padding, Math.min(labelX, ctx.canvas.width - textWidth - padding * 2))
+          // labelY = Math.max(textHeight + padding, labelY)
+
+          // // Draw background
+          // ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+          // ctx.fillRect(labelX, labelY, textWidth + padding * 2, textHeight + padding * 2)
+
+          // // Draw text
+          // ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+          // ctx.fillText(label, labelX + padding, labelY + textHeight + padding)
+
           count++
         }
       })
@@ -126,49 +166,59 @@ function loadVideos() {
         return
       }
 
-      const renderListItemToGreen = (color: string) => {
+      const renderListItemToGreen = (color: string, num: number = checkpoints.length) => {
         const items = [...el_checkPointsContainer.querySelectorAll('li')]
-          .filter((e, i) => i <= lastCheckedIndex)
-        items.forEach(e => e.style.backgroundColor = color)
+          .forEach((e, i) => {
+            if (i <= num - 1) {
+              e.style.backgroundColor = color
+            }
+            else {
+              e.style.backgroundColor = 'transparent'
+            }
+          })
       }
 
       if (lastCheckedIndex === -1 && detectMatch(result.keypointMap, checkpoints[0])) {
         lastCheckedIndex = 0
         drawCheckpoint(checkpoints[lastCheckedIndex], 'lime')
-        renderListItemToGreen('green')
+        renderListItemToGreen('green', 1)
         return
       }
 
       if (lastCheckedIndex === 0 && detectMatch(result.keypointMap, checkpoints[1])) {
         lastCheckedIndex = 1
         drawCheckpoint(checkpoints[lastCheckedIndex], 'lime')
-        renderListItemToGreen('green')
+        renderListItemToGreen('green', 2)
 
         return
       }
 
       if (lastCheckedIndex >= 1) {
         if (detectMatch(result.keypointMap, checkpoints[lastCheckedIndex - 1])) {
-          lastCheckedIndex = -1
           ctx.clearRect(0, 0, canvas.width, canvas.height)
           drawCheckpoint(checkpoints[0], 'blue')
-          renderListItemToGreen('blue')
-
+          renderListItemToGreen('transparent')
+          lastCheckedIndex = -1
           return
         }
 
         const nextCheckpoint = checkpoints[lastCheckedIndex + 1]
         if (nextCheckpoint && detectMatch(result.keypointMap, nextCheckpoint)) {
-          drawCheckpoint(checkpoints[lastCheckedIndex], 'purple')
+          drawCheckpoint(nextCheckpoint, 'green')
+          lastCheckedIndex += 1
+          renderListItemToGreen('green', lastCheckedIndex)
+        }
+
+        if (lastCheckedIndex === checkpoints.length - 1) {
           renderListItemToGreen('purple')
-          lastCheckedIndex += -1
           console.log('finish!')
+          lastCheckedIndex = -1
         }
       }
     }
 
     function detectMatch(keypointMap: KeypointMap, checkpointMap: CheckpointMap) {
-      if (keypointMap?.size === 0 || checkpointMap?.size === 0) {
+      if (!keypointMap || !checkpointMap || keypointMap.size === 0 || checkpointMap.size === 0) {
         return false
       }
 
@@ -342,7 +392,6 @@ const videos = loadVideos()
 btnPlayPause.addEventListener('click', (e) => {
   if (btnPlayPause.dataset.playPause === 'pause') {
     videos.forEach((e) => {
-      e.video.playbackRate = Number.parseFloat(btnPlaybackRate.value)
       e.video.play()
     })
     btnPlayPause.dataset.playPause = 'play'
@@ -367,12 +416,18 @@ btnSaveCheckpoint.addEventListener('click', async (e) => {
 
 btnPlaybackBackward.addEventListener('click', async (e) => {
   for (const e of videos) {
-    e.video.currentTime -= 0.4
+    e.video.currentTime -= Number.parseFloat(inputPlaybackTime.value)
   }
 })
 
 btnPlaybackForward.addEventListener('click', async (e) => {
   for (const e of videos) {
-    e.video.currentTime += 0.4
+    e.video.currentTime += Number.parseFloat(inputPlaybackTime.value)
+  }
+})
+
+inputPlaybackRate.addEventListener('input', (e) => {
+  for (const e of videos) {
+    e.video.playbackRate = Number.parseFloat(inputPlaybackRate.value)
   }
 })
