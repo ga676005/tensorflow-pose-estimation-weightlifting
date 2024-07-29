@@ -1,6 +1,6 @@
 import type { Keypoint, MoveNetModelConfig, Pose, PoseDetector } from '@tensorflow-models/pose-detection'
 import { SupportedModels, createDetector, movenet } from '@tensorflow-models/pose-detection'
-import { ready } from '@tensorflow/tfjs'
+import { ready, zeros } from '@tensorflow/tfjs'
 
 type KeypointName = | 'left_ear' | 'left_eye' | 'right_ear' | 'right_eye' | 'nose'
   | 'left_shoulder' | 'right_shoulder' | 'left_elbow' | 'right_elbow'
@@ -27,11 +27,15 @@ export async function loadModel() {
     const model = SupportedModels.MoveNet
     const detectorConfig: MoveNetModelConfig = {
       // modelType: movenet.modelType.SINGLEPOSE_THUNDER,
+      modelUrl: './movenetModel/model.json',
       modelType: movenet.modelType.SINGLEPOSE_LIGHTNING,
       enableSmoothing: true,
       minPoseScore: 0.1,
     }
     const detector = await createDetector(model, detectorConfig)
+    // warm up model
+    const imageData = new ImageData(1, 1)
+    await detector.estimatePoses(imageData)
     isReady = true
     return detector
   }
