@@ -81,14 +81,39 @@ function loadVideos() {
       canvas.height = videoRect.height
       scaleX = canvas.width / video.videoWidth
       scaleY = canvas.height / video.videoHeight
+    })
 
-      // fix .webm no duration issue
-      setTimeout(() => {
-        video.currentTime = 99999
-        setTimeout(() => {
-          video.currentTime = 34
-        }, 1000)
-      }, 1000)
+    // fix .webm no duration issue
+    let hasFixWebmDuration = false
+    const setCurrentTimeTo = 35
+    video.addEventListener('timeupdate', (e) => {
+      if (hasFixWebmDuration) {
+        return
+      }
+      console.log(`timeupdate video.currentTime:${video.currentTime} video.duration:${video.duration}`)
+
+      if (Number.isFinite(video.duration) === false) {
+        console.log('no duration, set large currentTime')
+        video.currentTime = 99999999
+        return
+      }
+
+      if (hasFixWebmDuration === false && Number.isFinite(video.duration)) {
+        console.log('hasFixWebmDuration === false && Number.isFinite(video.duration)')
+
+        if (video.currentTime === video.duration) {
+          requestAnimationFrame(() => {
+            console.log('set currentTime to start')
+            // 設 0 會有問題 video.currentTime = 0
+            video.currentTime = setCurrentTimeTo
+          })
+        }
+
+        else if (video.currentTime === setCurrentTimeTo) {
+          console.log('hasFixWebmDuration video.duration', video.duration)
+          hasFixWebmDuration = true
+        }
+      }
     })
 
     function drawKeypoints(keypointMap: KeypointMap, ctx: CanvasRenderingContext2D, scaleX = 1, scaleY = 1): void {
